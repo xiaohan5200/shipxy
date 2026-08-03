@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>船讯网 · 船位批量定位 by蔡中婷</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg:#0e1726;--card:#16233a;--input:#1e2f4a;--table-bg:#111c2f;--table-alt:#14213a;
+  --border:#253552;--accent:#2f9bff;--accent-hover:#4aa9ff;--success:#17b978;--success-hover:#22cd88;
+  --text:#e6edf6;--text-bright:#fff;--text-muted:#8ba0bd;--text-table:#dfe9f6;--text-error:#ff6b6b;
+  --hdr-start:#24406a;--hdr-end:#1a2942;--radius:8px;--radius-card:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei UI','Segoe UI','PingFang SC',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100vh;padding:14px 18px 12px;gap:12px}
+
+/* Header */
+.header{display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
+.header-l{flex:1}
+h1{font-size:21px;font-weight:700;color:var(--text-bright);line-height:1.3}
+.subtitle{font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4}
+
+/* Buttons */
+.btn{border:none;border-radius:var(--radius);padding:8px 16px;font-weight:600;font-size:12.5px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s,opacity .15s;display:inline-flex;align-items:center;gap:5px}
+.btn:disabled{cursor:not-allowed;opacity:.55}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--accent-hover)}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover:not(:disabled){background:var(--success-hover)}
+.btn-ghost{background:#1c2c46;color:#c4d3e8;border:1px solid #2c405f}
+.btn-ghost:hover{background:#243a5c}
+.btn-sm{padding:5px 12px;font-size:11px;border-radius:5px}
+
+/* Badge */
+.badge{font-size:10px;padding:3px 8px;border-radius:10px;font-weight:600;flex-shrink:0}
+.badge-live{background:var(--success);color:#fff}
+
+/* Card */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-card);padding:12px 14px;display:grid;grid-template-columns:3fr 1fr 2fr;gap:8px 12px;flex-shrink:0}
+#ship-input{grid-row:1/4;grid-column:1;background:var(--input);color:#eaf1fb;border:1px solid #2c405f;border-radius:var(--radius);padding:8px 10px;font-family:inherit;font-size:12.5px;resize:none;min-height:100px;outline:none;transition:border-color .15s}
+#ship-input:focus{border-color:var(--accent)}
+#ship-input::placeholder{color:#6b7d95}
+
+.opt-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.opt-row label{color:#c4d3e8;font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.opt-row input[type="checkbox"]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+.hint{color:var(--text-muted)!important;font-size:11px!important;cursor:default!important}
+.key-inp{background:var(--input);color:#eaf1fb;border:1px solid #2c405f;border-radius:5px;padding:5px 8px;font-size:11px;font-family:inherit;outline:none;width:190px;transition:border-color .15s}
+.key-inp:focus{border-color:var(--accent)}
+.key-inp::placeholder{color:#6b7d95}
+
+.btn-row{display:flex;gap:8px;align-items:center;grid-column:2/4;flex-wrap:wrap}
+.spacer{flex:1}
+
+/* Status bar */
+.status-bar{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.prog-outer{background:#1a2b3e;border-radius:5px;height:7px;width:260px;overflow:hidden;flex-shrink:0}
+.prog-inner{background:var(--accent);border-radius:5px;height:100%;width:0%;transition:width .25s}
+#status-text{color:#9fd0ff;font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Table */
+.table-wrap{flex:1;overflow:hidden;border:1px solid var(--border);border-radius:10px;background:var(--table-bg);display:flex;flex-direction:column;min-height:0}
+.table-scroll{flex:1;overflow:auto}
+.table-scroll table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%}
+.table-scroll thead th{background:linear-gradient(180deg,var(--hdr-start),var(--hdr-end));color:#cbd9ee;padding:9px 7px;font-weight:700;font-size:12px;border-right:1px solid #2a3f5e;border-bottom:2px solid var(--accent);position:sticky;top:0;z-index:3;text-align:center;white-space:nowrap}
+.table-scroll tbody td{padding:4px 7px;color:var(--text-table);font-size:12px;border-bottom:1px solid #223a4c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.table-scroll tbody tr:nth-child(even) td{background:var(--table-alt)}
+.table-scroll tbody tr:nth-child(odd) td{background:var(--table-bg)}
+.table-scroll tbody tr:hover td{filter:brightness(1.2)}
+.table-scroll tbody td.err{color:var(--text-error)}
+.sticky-col{position:sticky!important;z-index:2}
+.sticky-col-h{position:sticky!important;z-index:4}
+.ac{text-align:center!important}
+.al{text-align:left!important}
+.table-scroll::-webkit-scrollbar{width:9px;height:9px}
+.table-scroll::-webkit-scrollbar-track{background:#111c2f}
+.table-scroll::-webkit-scrollbar-thumb{background:#2c405f;border-radius:4px}
+.table-scroll::-webkit-scrollbar-corner{background:#111c2f}
+
+.footer-row{display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+#count-lbl{color:var(--text-muted);font-size:11px}
+
+/* Toasts */
+#toasts{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:10px 18px;border-radius:8px;font-size:12.5px;font-weight:600;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.45);pointer-events:auto;animation:toastIn .3s;max-width:420px}
+.toast.info{background:var(--accent)}
+.toast.success{background:var(--success)}
+.toast.error{background:#e74c3c}
+.toast.out{opacity:0;transition:opacity .3s}
+@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;display:flex;align-items:center;justify-content:center}
+.modal-box{background:#111c2f;border-radius:12px;width:550px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.modal-head h3{color:var(--text-bright);font-size:15px}
+.modal-close{background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:2px 8px}
+.modal-close:hover{color:var(--text-bright)}
+.modal-body{padding:16px;overflow-y:auto;flex:1;font-family:'Consolas','Microsoft YaHei UI',monospace;font-size:12px;color:#dfe9f6;white-space:pre-wrap;line-height:1.55}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ===== Header ===== -->
+  <div class="header">
+    <div class="header-l">
+      <h1>⛵ 船位批量定位</h1>
+      <div class="subtitle">输入船名 / MMSI（每行一个，逗号顿号分隔）→ 实时经纬度 + 省市县镇详细地址 → 导出 Excel</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="badge badge-live">📡 实时模式</span>
+      <input class="key-inp" id="api-url-inp" style="width:210px;font-size:10px;" placeholder="后端API地址" title="后端API地址，留空默认连接本地">
+      <button class="btn btn-ghost btn-sm" onclick="showAbout()">关于</button>
+    </div>
+  </div>
+
+  <!-- ===== Input Card ===== -->
+  <div class="card">
+    <textarea id="ship-input" placeholder="渝东809&#10;413970005&#10;长江货轮001&#10;… 每行一个，支持船名或 MMSI&#10;（可粘贴 · 可导入TXT · 可拖拽 .txt 文件到此处）"></textarea>
+
+    <div class="opt-row" style="grid-row:1;grid-column:2/4;">
+      <label><input type="checkbox" id="chk-headless" checked> 后台运行浏览器（不弹出窗口）</label>
+    </div>
+    <div class="opt-row" style="grid-row:2;grid-column:2/4;">
+      <span class="hint">高德Key(选填，国内地址更详细):</span>
+      <input class="key-inp" id="amap-key" placeholder="留空则用全球免费方案(Photon+BigDataCloud)">
+    </div>
+
+    <div class="btn-row" style="grid-row:3;grid-column:2/4;">
+      <button class="btn btn-primary" id="btn-start" onclick="startQuery()">▶ 开始查询</button>
+      <button class="btn btn-ghost" onclick="importTxt()">📂 导入TXT</button>
+      <button class="btn btn-ghost" onclick="fillTest()">📋 测试数据</button>
+      <button class="btn btn-ghost" onclick="clearResults()">🗑 清空结果</button>
+      <span class="spacer"></span>
+      <button class="btn btn-success" id="btn-export" disabled onclick="exportExcel()">📥 导出Excel</button>
+    </div>
+  </div>
+
+  <!-- ===== Progress ===== -->
+  <div class="status-bar">
+    <div class="prog-outer"><div class="prog-inner" id="prog-fill"></div></div>
+    <span id="status-text">👋 就绪 — 输入船名后点击「开始查询」或按 Ctrl+Enter</span>
+  </div>
+
+  <!-- ===== Table ===== -->
+  <div class="table-wrap">
+    <div class="table-scroll" id="tbl-scroll">
+      <table><thead id="tbl-head"></thead><tbody id="tbl-body"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ===== Footer ===== -->
+  <div class="footer-row">
+    <span style="font-size:10px;color:var(--text-muted)">💡 双击行复制坐标 | Ctrl+Enter 查询 | Esc 关闭弹窗</span>
+    <span id="count-lbl">共 0 条</span>
+  </div>
+</div>
+
+<!-- About Modal -->
+<div class="modal-overlay" id="about-mod" style="display:none" onclick="if(event.target===this)hideAbout()">
+  <div class="modal-box">
+    <div class="modal-head"><h3>关于 船讯定位</h3><button class="modal-close" onclick="hideAbout()">✕</button></div>
+    <div class="modal-body" id="about-txt"></div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toasts"></div>
+<input type="file" id="file-inp" accept=".txt,.csv,.text" multiple style="display:none" onchange="handleFiles(this.files)">
+
+<script>
+// ============================================================
+// 21列定义 — 与 shipxy_gui.py COLUMNS 完全一致
+// ============================================================
+var COLS=[
+  ["idx","序号",56,"ac"],["query","输入",96,"al"],["name","船名",120,"al"],
+  ["cnname","中文名",96,"al"],["mmsi","MMSI",96,"ac"],["lat","纬度",88,"ac"],
+  ["lon","经度",90,"ac"],["pos_dms","度分坐标(官网一致)",190,"ac"],
+  ["sog_knots","航速(节)",76,"ac"],["cog_deg","航向°",66,"ac"],
+  ["navistatus","状态",104,"ac"],["country","国家",104,"ac"],
+  ["province","省/州",96,"ac"],["city","市",92,"ac"],["district","县/区",96,"ac"],
+  ["town","镇/乡/社区",112,"al"],["address","详细地址",360,"al"],
+  ["dest","目的地",92,"ac"],["last_report","数据截至时间",150,"ac"],
+  ["query_time","查询时间",150,"ac"],["error","备注",150,"al"]
+];
+var FROZEN=1;
+
+var TEST_SHIPS="渝东809\n镔港817\n镔港809\n乾坤99\n皖宇航6898\n镔港817\n镔港809\n淮海远哲\n万邦海运02\n万邦海运02\n新海集之星\n汉升方舟\n汉海5号\n万邦海运01\n长荣顺达\nJOSCO ALMA\nCSCL ASIA\nEVER FAVOR\nFAN YA NING DE";
+
+var ABOUT="船讯定位 · ShipXY Locator Pro\n全球船舶实时定位与地址归属分析平台\n══════════════════════════════\n版　本　│　v2.0 (Web Edition)\n作　者　│　蔡中婷\n开发时间│　2026年7月6日\n开发地点│　中国 · 武汉\n══════════════════════════════\n◆ 核心能力\n   · 全球船舶实时定位——毫秒级解析 AIS 动态\n   · 多级地址归属——国家/省/市/县区/镇逐级下钻\n   · 高并发批量核查——一次录入、批量处理\n   · 专业数据沉淀——一键导出 Excel 报表\n══════════════════════════════\n◆ 技术架构\n   HTML5 + Python后端桥接(Playwright浏览器自动化)\n   暗色主题UI + 冻结列表格 + SheetJS导出\n   逆地理编码: Photon + BigDataCloud + 高德(可选)\n══════════════════════════════\n© 2026 蔡中婷 · 保留一切权利";
+
+var rows=[], querying=false, abortCtrl=null;
+
+// ── 后端地址（支持 URL参数 ?api= 、localStorage、默认值）──
+var API_BASE=(function(){
+  var p=new URLSearchParams(location.search);
+  if(p.get("api")) return p.get("api").replace(/\/+$/,"");
+  var s=localStorage.getItem("shipxy_api");
+  if(s) return s;
+  return "http://127.0.0.1:8765";
+})();
+
+// ============================================================
+// Init
+// ============================================================
+function init(){
+  buildHead();
+  document.getElementById("about-txt").textContent=ABOUT;
+  document.getElementById("amap-key").value=localStorage.getItem("shipxy_amap")||"";
+
+  // 后端地址
+  var apiInp=document.getElementById("api-url-inp");
+  apiInp.value=API_BASE;
+  apiInp.addEventListener("change",function(){
+    var v=this.value.trim().replace(/\/+$/,"");
+    if(v&&v!==API_BASE){
+      API_BASE=v;
+      localStorage.setItem("shipxy_api",v);
+      toast("后端地址已更新："+v,"info");
+    }
+  });
+
+  // Drag & drop
+  var inp=document.getElementById("ship-input");
+  inp.addEventListener("dragover",function(e){e.preventDefault();inp.style.borderColor="var(--accent)"});
+  inp.addEventListener("dragleave",function(){inp.style.borderColor=""});
+  inp.addEventListener("drop",function(e){
+    e.preventDefault();inp.style.borderColor="";
+    var fs=Array.from(e.dataTransfer.files).filter(function(f){return /\.(txt|csv|text)$/i.test(f.name)});
+    if(fs.length) loadFiles(fs); else toast("请拖放 .txt 文件","error");
+  });
+  document.addEventListener("dragover",function(e){e.preventDefault()});
+  document.addEventListener("drop",function(e){
+    e.preventDefault();
+    var fs=Array.from(e.dataTransfer.files).filter(function(f){return /\.(txt|csv|text)$/i.test(f.name)});
+    if(fs.length) loadFiles(fs);
+  });
+
+  // Keyboard
+  document.addEventListener("keydown",function(e){
+    if(e.ctrlKey&&e.key==="Enter"){e.preventDefault();startQuery();}
+    if(e.key==="Escape"){hideAbout();}
+  });
+}
+
+// ============================================================
+// Table header
+// ============================================================
+function buildHead(){
+  var tr=document.createElement("tr");
+  COLS.forEach(function(c,i){
+    var th=document.createElement("th");
+    th.textContent=c[1]; th.style.width=c[2]+"px"; th.style.minWidth=c[2]+"px";
+    if(i<FROZEN){th.classList.add("sticky-col-h");th.style.left=frozenLeft(i)+"px"}
+    tr.appendChild(th);
+  });
+  document.getElementById("tbl-head").appendChild(tr);
+}
+function frozenLeft(col){var s=0;for(var i=0;i<col;i++)s+=COLS[i][2];return s}
+
+// ============================================================
+// Parse queries
+// ============================================================
+function parseQueries(){
+  var t=document.getElementById("ship-input").value;
+  var ps=t.split(/[\n,，、;；\t]+/);
+  var seen={}, out=[];
+  for(var i=0;i<ps.length;i++){var s=ps[i].trim();if(s&&!seen[s]){seen[s]=1;out.push(s)}}
+  return out;
+}
+
+// ============================================================
+// Start query — streaming mode
+// ============================================================
+async function startQuery(){
+  if(querying) return;
+  var qs=parseQueries();
+  if(!qs.length){toast("请先输入至少一个船名或 MMSI","info");return}
+
+  // ── 预检：后端连通性 ──
+  setStatus("🔍 正在检查后端服务…");
+  var backendOK=false, browserReady=false;
+  try{
+    var hr=await fetch(API_BASE+"/api/health",{signal:AbortSignal.timeout(3000)});
+    if(hr.ok){
+      var hj=await hr.json();
+      backendOK=true;
+      browserReady=hj.locator_ready;
+    }
+  }catch(e){}
+
+  if(!backendOK){
+    setStatus("❌ 无法连接后端服务");
+    toast("❌ 后端未启动！\n\n请先在终端运行：\n  python shipxy_server.py\n\n然后刷新页面重试","error");
+    return;
+  }
+
+  querying=true;
+  document.getElementById("btn-start").disabled=true;
+  document.getElementById("btn-export").disabled=true;
+  setProgress(0,qs.length);
+
+  if(!browserReady){
+    setStatus("📡 正在启动浏览器并过反爬验证（约15-30秒）…");
+  }else{
+    setStatus("📡 浏览器已就绪，开始逐条查询…");
+  }
+
+  var amapKey=document.getElementById("amap-key").value.trim();
+  if(amapKey) localStorage.setItem("shipxy_amap",amapKey);
+  var headless=document.getElementById("chk-headless").checked;
+
+  abortCtrl=new AbortController();
+
+  try{
+    var resp=await fetch(API_BASE+"/api/locate",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({queries:qs, amap_key:amapKey||null, headless:headless}),
+      signal:abortCtrl.signal
+    });
+
+    if(!resp.ok){
+      var errText=await resp.text();
+      try{var ej=JSON.parse(errText);throw new Error(ej.error||"HTTP "+resp.status)}
+      catch(e){if(e.message!==errText)throw e;throw new Error("HTTP "+resp.status+": "+errText.slice(0,100))}
+    }
+
+    // 流式读取 NDJSON
+    var reader=resp.body.getReader();
+    var decoder=new TextDecoder();
+    var buffer="";
+    var count=0;
+
+    while(true){
+      var result=await reader.read();
+      if(result.done) break;
+      buffer+=decoder.decode(result.value,{stream:true});
+      var lines=buffer.split("\n");
+      buffer=lines.pop(); // 保留不完整的最后一行
+      for(var i=0;i<lines.length;i++){
+        var line=lines[i].trim();
+        if(!line) continue;
+        try{
+          var obj=JSON.parse(line);
+          if(obj.type==="start"){
+            setProgress(0,obj.total);
+            setStatus("📡 浏览器就绪，开始逐条查询…");
+          }else if(obj.type==="row"){
+            addRow(obj);
+            count++;
+            setProgress(count, qs.length);
+            setStatus("📡 正在查询："+(obj.query||"")+"  ("+count+"/"+qs.length+")");
+          }else if(obj.type==="done"){
+            // done
+          }
+        }catch(e){/* skip bad lines */}
+      }
+    }
+    // 处理最后的buffer
+    if(buffer.trim()){
+      try{
+        var obj=JSON.parse(buffer.trim());
+        if(obj.type==="row"){addRow(obj);count++;}
+      }catch(e){}
+    }
+
+    setProgress(count,qs.length);
+    var errCount=rows.filter(function(r){return r.error}).length;
+    if(errCount){
+      setStatus("✅ 查询完成，共 "+rows.length+" 条，"+errCount+" 条失败");
+      toast(errCount+" 条查询失败，详见备注列","error");
+    }else{
+      setStatus("✅ 查询完成，共 "+rows.length+" 条");
+      toast("查询完成："+rows.length+" 条","success");
+    }
+  }catch(e){
+    if(e.name==="AbortError"){
+      setStatus("⏹ 已中止查询");
+    }else if(e.message&&e.message.includes("Failed to fetch")){
+      setStatus("❌ 连接后端失败");
+      toast("❌ 后端连接中断！\n\n请确认 python shipxy_server.py 仍在运行\n如果已关闭，请重新启动后刷新页面","error");
+    }else if(e.message&&e.message.includes("人工验证")){
+      setStatus("❌ 触发人工验证");
+      toast("⚠️ 船讯网要求人工验证！\n\n请取消勾选「后台运行浏览器」\n重新查询，在弹出浏览器中手动通过验证\n通过后即可恢复后台运行","error");
+    }else{
+      setStatus("❌ 出错："+e.message);
+      toast("查询失败："+e.message,"error");
+    }
+  }
+
+  querying=false;
+  abortCtrl=null;
+  document.getElementById("btn-start").disabled=false;
+  document.getElementById("btn-export").disabled=(rows.length===0);
+  updateCount();
+}
+
+// ============================================================
+// Table
+// ============================================================
+function addRow(row){
+  rows.push(row);
+  var tbody=document.getElementById("tbl-body");
+  var tr=document.createElement("tr");
+  COLS.forEach(function(c,i){
+    var td=document.createElement("td");
+    var v=row[c[0]];
+    if(v===null||v===undefined) v="";
+    td.textContent=String(v);
+    td.classList.add(c[3]);
+    if(i<FROZEN){td.classList.add("sticky-col");td.style.left=frozenLeft(i)+"px"}
+    if(c[0]==="error"&&v) td.classList.add("err");
+    if(c[0]==="address"||c[0]==="error") td.title=String(v);
+    tr.appendChild(td);
+  });
+  // 双击复制坐标
+  tr.addEventListener("dblclick",function(){
+    if(row.lat!==""&&row.lat!==undefined&&row.lon!==""&&row.lon!==undefined){
+      var coord=row.lat+","+row.lon;
+      navigator.clipboard.writeText(coord).then(function(){
+        setStatus("📋 已复制坐标："+coord);toast("已复制："+coord,"success");
+      });
+    }
+  });
+  tbody.appendChild(tr);
+  // 自动滚动到底部
+  var sc=document.getElementById("tbl-scroll");
+  sc.scrollTop=sc.scrollHeight;
+  updateCount();
+}
+
+function clearResults(){
+  rows=[]; document.getElementById("tbl-body").innerHTML="";
+  setProgress(0,1); setStatus("🗑 已清空");
+  document.getElementById("btn-export").disabled=true; updateCount();
+}
+
+function updateCount(){
+  document.getElementById("count-lbl").textContent="共 "+rows.length+" 条";
+}
+
+function setProgress(d,t){
+  document.getElementById("prog-fill").style.width=(t>0?(d/t)*100:0)+"%";
+}
+function setStatus(m){
+  document.getElementById("status-text").textContent=m;
+}
+
+// ============================================================
+// Export Excel — 使用 SheetJS + CSV回退
+// ============================================================
+async function exportExcel(){
+  if(!rows.length) return;
+
+  // 构建数据
+  var hdrs=[], keys=[];
+  for(var i=0;i<COLS.length;i++){hdrs.push(COLS[i][1]);keys.push(COLS[i][0])}
+  var data=rows.map(function(r){
+    return keys.map(function(k){var v=r[k];return (v===null||v===undefined)?"":v});
+  });
+
+  var now=new Date();
+  var ts=now.getFullYear()+String(now.getMonth()+1).padStart(2,"0")+
+    String(now.getDate()).padStart(2,"0")+"_"+String(now.getHours()).padStart(2,"0")+
+    String(now.getMinutes()).padStart(2,"0")+String(now.getSeconds()).padStart(2,"0");
+  var filename="船位查询_"+ts;
+
+  if(typeof XLSX==="undefined"){
+    // SheetJS 未加载 → CSV 回退
+    exportCSV(hdrs,data,filename);
+    return;
+  }
+
+  // ── 构建带美化的 Excel ──
+  try{
+    var ws={};
+    var nrows=data.length, ncols=hdrs.length;
+
+    // 通用样式
+    function border(){
+      return {top:{style:"thin",color:{rgb:"D6DEE8"}},bottom:{style:"thin",color:{rgb:"D6DEE8"}},
+              left:{style:"thin",color:{rgb:"D6DEE8"}},right:{style:"thin",color:{rgb:"D6DEE8"}}};
+    }
+    function align(){return {horizontal:"center",vertical:"center",wrapText:true};}
+
+    // 表头样式（深蓝底白字）
+    var hdrStyle={
+      alignment:align(),
+      font:{name:"微软雅黑",sz:11,bold:true,color:{rgb:"FFFFFF"}},
+      fill:{fgColor:{rgb:"1F3B63"}},
+      border:border()
+    };
+    // 数据行样式
+    var rowEven={
+      alignment:align(),
+      font:{name:"微软雅黑",sz:10},
+      fill:{fgColor:{rgb:"F2F6FC"}},
+      border:border()
+    };
+    var rowOdd={
+      alignment:align(),
+      font:{name:"微软雅黑",sz:10},
+      fill:{fgColor:{rgb:"FFFFFF"}},
+      border:border()
+    };
+
+    // 写表头
+    for(var c=0;c<ncols;c++){
+      ws[XLSX.utils.encode_cell({r:0,c:c})]={v:hdrs[c],t:"s",s:hdrStyle};
+    }
+
+    // 写数据
+    for(var r=0;r<nrows;r++){
+      var style=(r%2===0)?rowEven:rowOdd;
+      for(var c=0;c<ncols;c++){
+        ws[XLSX.utils.encode_cell({r:r+1,c:c})]={v:data[r][c],t:"s",s:style};
+      }
+    }
+
+    ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:nrows,c:ncols-1}});
+    // 列宽自适应（CJK字符按2宽度计）
+    ws["!cols"]=COLS.map(function(col,ci){
+      return {wch:Math.min(58,Math.max(7,col[2]/7))};
+    });
+    // 冻结首行 + 自动筛选
+    ws["!autofilter"]={ref:"A1:"+XLSX.utils.encode_cell({r:nrows,c:ncols-1})};
+
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"船位");
+
+    // ── 弹出保存对话框（默认桌面）──
+    var saved=false;
+    if(window.showSaveFilePicker){
+      try{
+        var handle=await window.showSaveFilePicker({
+          suggestedName:filename+".xlsx",
+          startIn:"desktop",
+          types:[{description:"Excel 文件",accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]
+        });
+        var wbout=XLSX.write(wb,{bookType:"xlsx",type:"array",bookSST:false});
+        var writable=await handle.createWritable();
+        await writable.write(wbout);
+        await writable.close();
+        saved=true;
+        setStatus("📥 已导出："+filename+".xlsx");
+        toast("Excel 导出成功！","success");
+      }catch(e){
+        if(e.name==="AbortError"||e.name==="DOMException"){
+          // 用户取消
+          return;
+        }
+        // 其他错误 → 回退到直接下载
+        console.warn("showSaveFilePicker failed, fallback to direct download:",e);
+      }
+    }
+
+    if(!saved){
+      // 直接下载（浏览器默认下载目录）
+      XLSX.writeFile(wb,filename+".xlsx");
+      setStatus("📥 已导出："+filename+".xlsx");
+      toast("Excel 导出成功！","success");
+    }
+  }catch(e){
+    console.error("XLSX export failed, falling back to CSV:",e);
+    exportCSV(hdrs,data,filename);
+  }
+}
+
+// CSV 回退
+function exportCSV(hdrs,data,filename){
+  var BOM="﻿";
+  var csv=BOM+hdrs.join(",")+"\n";
+  for(var i=0;i<data.length;i++){
+    csv+=data[i].map(function(cell){
+      var v=String(cell);
+      if(v.includes(",")||v.includes("\"")||v.includes("\n")){
+        return "\""+v.replace(/\"/g,"\"\"")+"\"";
+      }
+      return v;
+    }).join(",")+"\n";
+  }
+  var blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url;a.download=filename+".csv";document.body.appendChild(a);
+  a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  setStatus("📥 已导出："+filename+".csv (CSV格式)");
+  toast("CSV 导出成功！（使用CSV回退方案）","info");
+}
+
+// ============================================================
+// Import
+// ============================================================
+function importTxt(){document.getElementById("file-inp").click()}
+function handleFiles(files){
+  if(!files.length) return;
+  var fs=Array.from(files).filter(function(f){return /\.(txt|csv|text)$/i.test(f.name)});
+  if(!fs.length){toast("仅支持 .txt 文件","error");return}
+  loadFiles(fs);
+}
+function loadFiles(files){
+  var old=document.getElementById("ship-input").value.trim();
+  var chunks=[old], done=0;
+  files.forEach(function(f){
+    var r=new FileReader();
+    r.onload=function(){chunks.push(r.result);done++;if(done===files.length) finish();};
+    r.onerror=function(){done++;if(done===files.length) finish();};
+    r.readAsText(f,"UTF-8");
+  });
+  function finish(){
+    document.getElementById("ship-input").value=chunks.filter(function(c){return c}).join("\n");
+    var n=parseQueries().length;
+    setStatus("📂 已导入 "+done+" 个文件，识别 "+n+" 个船名/MMSI");
+    toast("已导入 "+done+" 个文件","info");
+  }
+}
+function fillTest(){
+  document.getElementById("ship-input").value=TEST_SHIPS;
+  var n=parseQueries().length;
+  setStatus("📋 已填充测试数据，共 "+n+" 个船名（去重后）");
+  toast("测试数据："+n+" 条","info");
+}
+
+// ============================================================
+// About
+// ============================================================
+function showAbout(){document.getElementById("about-mod").style.display="flex"}
+function hideAbout(){document.getElementById("about-mod").style.display="none"}
+
+// ============================================================
+// Toast
+// ============================================================
+function toast(msg,type){
+  var ct=document.getElementById("toasts");
+  var el=document.createElement("div");
+  el.className="toast "+type; el.textContent=msg;
+  ct.appendChild(el);
+  setTimeout(function(){el.classList.add("out");setTimeout(function(){el.remove()},300)},2800);
+}
+
+init();
+</script>
+</body>
+</html>

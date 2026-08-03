@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: shipxy-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter   # 至少 512MB RAM，Chromium 需要
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
