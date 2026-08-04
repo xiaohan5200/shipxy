@@ -10,6 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY shipxy_server.py .
 COPY shipxy_locator.py .
 COPY shipxy_web.html .
+COPY pinyin_city_map.py .
+COPY sign_reference.py .
 
 # 暴露端口
 EXPOSE 8765

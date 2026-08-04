@@ -3,13 +3,88 @@
 shipxy_server.py — 船位定位 HTTP API（支持流式逐条返回）
 启动: python shipxy_server.py [--port 8765]
 """
-import sys, os, json, time, argparse
+import sys, os, json, re, time, argparse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import shipxy_locator as engine
 
 _HTML_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shipxy_web.html")
 _locator = None
+
+# ── 拼音→中文映射 ──────────────────────────────────────────────────────────
+try:
+    from pinyin_city_map import PINYIN_CITY_MAP as _PINYIN_MAP
+except ImportError:
+    _PINYIN_MAP = {}
+
+try:
+    from pypinyin import pinyin as _pypinyin_fn, Style as _Style
+    def _to_pinyin(name):
+        return ''.join(p[0] for p in _pypinyin_fn(name, style=_Style.NORMAL)).upper()
+except ImportError:
+    _pypinyin_fn = None
+    def _to_pinyin(name):
+        return None
+
+
+def _city_short(city):
+    if not city:
+        return ""
+    for sfx in ("自治州", "地区", "林区", "特区", "市", "县", "区", "盟"):
+        if city.endswith(sfx) and len(city) > len(sfx):
+            return city[:-len(sfx)]
+    return city
+
+
+def _dest_chinese(dest):
+    if not dest:
+        return ""
+    s = str(dest).strip()
+    if re.search(r'[一-鿿]', s):
+        m = re.findall(r'[一-鿿]+', s)
+        return m[0] if m else s
+    first = re.split(r'[,/]', s)[0].strip()
+    candidates = []
+    raw = re.sub(r'[^A-Za-z]', '', first).upper()
+    if raw:
+        candidates.append(raw)
+    nospace = re.sub(r'\s+', '', first).upper()
+    if nospace and nospace != raw:
+        candidates.append(nospace)
+    parts = first.split()
+    if parts:
+        first_word = parts[0].upper()
+        if first_word not in candidates:
+            candidates.append(first_word)
+    for cand in candidates:
+        if cand in _PINYIN_MAP:
+            return _PINYIN_MAP[cand]
+    try:
+        from difflib import get_close_matches
+        for cand in candidates:
+            if len(cand) >= 3:
+                matches = get_close_matches(cand, _PINYIN_MAP.keys(), n=1, cutoff=0.78)
+                if matches:
+                    return _PINYIN_MAP[matches[0]]
+    except ImportError:
+        pass
+    if _pypinyin_fn:
+        try:
+            for cand in candidates:
+                py = _to_pinyin(cand)
+                if py and py in _PINYIN_MAP:
+                    return _PINYIN_MAP[py]
+        except Exception:
+            pass
+    return first
+
+
+def _make_path(city, dest):
+    c = _city_short(city) if city else ""
+    d = _dest_chinese(dest) if dest else ""
+    if c and d:
+        return f"{c}-{d}"
+    return c or d or ""
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -164,6 +239,7 @@ class Handler(BaseHTTPRequestHandler):
                 "town": loc.get("town", "") or "",
                 "address": loc.get("formatted", "") or "",
                 "dest": item.get("dest", "") or "",
+                "path": _make_path(loc.get("city", ""), item.get("dest", "")),
                 "last_report": item.get("last_report", "") or "",
                 "query_time": item.get("query_time", ""),
                 "error": item.get("error", "") or "",
@@ -206,7 +282,7 @@ class Handler(BaseHTTPRequestHandler):
                     "name": "", "cnname": "", "mmsi": "", "lat": "", "lon": "",
                     "pos_dms": "", "sog_knots": "", "cog_deg": "", "navistatus": "",
                     "country": "", "province": "", "city": "", "district": "",
-                    "town": "", "address": "", "dest": "", "last_report": "",
+                    "town": "", "address": "", "dest": "", "path": "", "last_report": "",
                 })
 
         emit({"type": "done", "total": total})

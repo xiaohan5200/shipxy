@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>船讯网 · 船位批量定位</title>
+<style>
+:root {--bg-root:#0e1726;--bg-card:#16233a;--bg-input:#1e2f4a;--bg-table:#111c2f;--bg-table-alt:#14213a;--bg-header-start:#24406a;--bg-header-end:#1a2942;--border:#253552;--border-light:#2c405f;--text-primary:#e6edf6;--text-secondary:#8ba0bd;--text-table:#dfe9f6;--text-header:#cbd9ee;--accent:#2f9bff;--accent-hover:#4aa9ff;--success:#17b978;--success-hover:#22cd88;--danger:#ff6b6b;--ghost-bg:#1c2c46;--radius:8px;--radius-lg:12px;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Microsoft YaHei UI','Segoe UI','PingFang SC',sans-serif;background:var(--bg-root);color:var(--text-primary);min-height:100vh;overflow-x:hidden}
+.app-container{max-width:100%;margin:0 auto;padding:20px 24px 16px;display:flex;flex-direction:column;gap:14px;min-height:100vh}
+.header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.header-left{display:flex;flex-direction:column;gap:2px}
+.header-left h1{font-size:22px;font-weight:700;color:#fff}
+.header-left p{font-size:12px;color:var(--text-secondary)}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 18px;border-radius:var(--radius);font-weight:600;font-size:13px;cursor:pointer;border:none;gap:6px;white-space:nowrap;transition:background .15s,opacity .15s;font-family:inherit}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--accent-hover)}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover:not(:disabled){background:var(--success-hover)}
+.btn-ghost{background:var(--ghost-bg);color:#c4d3e8;border:1px solid var(--border-light)}
+.btn-ghost:hover:not(:disabled){background:#243a5c}
+.btn-sm{padding:6px 14px;font-size:12px}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.input-grid{display:grid;grid-template-columns:3fr 1fr 2fr;gap:12px 12px;align-items:start}
+.input-grid .textarea-wrap{grid-row:span 3}
+.textarea-wrap textarea{width:100%;height:104px;resize:vertical;background:var(--bg-input);color:#eaf1fb;border:1px solid var(--border-light);border-radius:var(--radius);padding:8px 10px;font-size:13px;font-family:inherit;line-height:1.5}
+.textarea-wrap textarea:focus{outline:none;border-color:var(--accent)}
+.textarea-wrap textarea::placeholder{color:#5a7296}
+.control-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#c4d3e8}
+.control-row input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.control-row label{cursor:pointer;user-select:none}
+.field-group{display:flex;flex-direction:column;gap:4px}
+.field-group label{font-size:12px;color:var(--text-secondary)}
+.field-group input[type="text"]{width:100%;background:var(--bg-input);color:#eaf1fb;border:1px solid var(--border-light);border-radius:var(--radius);padding:8px 10px;font-size:13px;font-family:inherit}
+.field-group input[type="text"]:focus{outline:none;border-color:var(--accent)}
+.field-group input[type="text"]::placeholder{color:#5a7296}
+.btn-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.btn-bar .spacer{flex:1}
+.progress-row{display:flex;align-items:center;gap:12px}
+.progress-bar{width:280px;height:8px;background:#1a2b3e;border-radius:6px;overflow:hidden;flex-shrink:0}
+.progress-bar .fill{height:100%;background:var(--accent);border-radius:6px;transition:width .3s ease;width:0%}
+.status-text{font-size:12px;color:#9fd0ff;flex:1}
+.table-outer{flex:1;overflow:auto;border:1px solid var(--border);border-radius:10px;background:var(--bg-table);min-height:200px;max-height:calc(100vh - 420px)}
+.table-outer table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px}
+.table-outer thead{position:sticky;top:0;z-index:3}
+.table-outer thead th{background:linear-gradient(180deg,var(--bg-header-start),var(--bg-header-end));color:var(--text-header);font-weight:700;padding:10px 8px;border-right:1px solid #2a3f5e;border-bottom:2px solid var(--accent);white-space:nowrap;text-align:center}
+.table-outer thead th:first-child,.table-outer tbody td:first-child{position:sticky;left:0;z-index:2;background:var(--bg-table)}
+.table-outer thead th:first-child{z-index:4}
+.table-outer tbody td{padding:5px 8px;color:var(--text-table);border-right:1px solid #223a4c33;border-bottom:1px solid #223a4c33;white-space:nowrap;max-width:360px;overflow:hidden;text-overflow:ellipsis}
+.table-outer tbody tr:nth-child(even) td{background:var(--bg-table-alt)}
+.table-outer tbody tr:nth-child(even) td:first-child{background:var(--bg-table-alt)}
+.table-outer tbody tr:hover td{filter:brightness(1.2)}
+.table-outer tbody td:first-child{text-align:center}
+.table-outer tbody td.coord-col{cursor:pointer;color:var(--accent)}
+.table-outer tbody td.coord-col:hover{text-decoration:underline}
+.table-outer tbody td.error-col{color:var(--danger)}
+.empty-state{display:flex;align-items:center;justify-content:center;height:180px;color:var(--text-secondary);font-size:14px;user-select:none}
+.footer{display:flex;align-items:center;justify-content:space-between}
+.footer .count{font-size:12px;color:var(--text-secondary)}
+.modal-overlay{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.55);align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal{background:#111c2f;border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;max-width:580px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.modal h3{font-size:18px;margin-bottom:14px;color:#fff}
+.modal pre{font-family:'Consolas','Microsoft YaHei UI',monospace;font-size:13px;color:var(--text-table);line-height:1.7;white-space:pre-wrap;word-break:break-all}
+.modal .modal-close{float:right;background:none;border:none;color:var(--text-secondary);font-size:20px;cursor:pointer;padding:4px 8px;line-height:1}
+.modal .modal-close:hover{color:#fff}
+.toast{position:fixed;top:20px;right:20px;z-index:200;background:var(--success);color:#fff;padding:10px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.3);opacity:0;transform:translateX(20px);transition:all .25s ease;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(0)}
+.toast.error{background:#e74c3c}
+#fileInput{display:none}
+@media(max-width:768px){.input-grid{grid-template-columns:1fr}.input-grid .textarea-wrap{grid-row:span 1}.btn-bar{flex-wrap:wrap}.progress-bar{width:160px}}
+</style>
+</head>
+<body>
+<div class="app-container">
+  <div class="header">
+    <div class="header-left"><h1>船位批量定位</h1><p>输入船名 / MMSI（每行一个，或用逗号、顿号分隔）→ 实时经纬度 + 省市县镇详细地址 → 导出 Excel</p></div>
+    <button class="btn btn-ghost btn-sm" onclick="showAbout()" style="min-width:74px">关于</button>
+  </div>
+  <div class="card"><div class="input-grid">
+    <div class="textarea-wrap"><textarea id="shipInput" placeholder="渝东809&#10;413970005&#10;长江货轮001&#10;… 每行一个，支持船名或 MMSI&#10;（可粘贴、可导入TXT）"></textarea></div>
+    <div class="control-row"><input type="checkbox" id="chkHeadless" checked><label for="chkHeadless">后台运行（不弹出浏览器窗口）</label></div>
+    <div></div>
+    <div class="field-group"><label>高德Key（选填，国内更详细）:</label><input type="text" id="amapKey" placeholder="留空则用免key全球方案(Photon+BigDataCloud)"></div>
+    <div></div>
+    <div class="btn-bar">
+      <button class="btn btn-primary" id="btnStart" onclick="startQuery()">开始查询</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('fileInput').click()">导入 TXT</button>
+      <button class="btn btn-ghost" onclick="fillTest()">测试数据</button>
+      <button class="btn btn-ghost" onclick="clearAll()">清空结果</button>
+      <span class="spacer"></span>
+      <button class="btn btn-success" id="btnExport" disabled onclick="exportExcel()">导出 Excel</button>
+    </div>
+  </div></div>
+  <div class="progress-row"><div class="progress-bar"><div class="fill" id="progressFill"></div></div><span class="status-text" id="statusText">就绪</span></div>
+  <div class="table-outer" id="tableOuter">
+    <div class="empty-state" id="emptyState">输入船名/MMSI 后点击"开始查询"，结果将实时显示在这里</div>
+    <table id="resultTable" style="display:none">
+      <thead><tr>
+        <th style="min-width:56px">序号</th><th style="min-width:96px">输入</th><th style="min-width:120px">船名</th><th style="min-width:96px">中文名</th><th style="min-width:96px">MMSI</th><th style="min-width:88px">纬度</th><th style="min-width:90px">经度</th><th style="min-width:190px">度分坐标(官网一致)</th><th style="min-width:76px">航速(节)</th><th style="min-width:66px">航向°</th><th style="min-width:104px">状态</th><th style="min-width:104px">国家</th><th style="min-width:96px">省/州</th><th style="min-width:92px">市</th><th style="min-width:96px">县/区</th><th style="min-width:112px">镇/乡/社区</th><th style="min-width:360px">详细地址</th><th style="min-width:92px">目的地</th><th style="min-width:120px">路径</th><th style="min-width:150px">数据截至时间</th><th style="min-width:150px">查询时间</th><th style="min-width:150px">备注</th>
+      </tr></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+  <div class="footer"><span class="count" id="countText">共 0 条</span></div>
+</div>
+<input type="file" id="fileInput" accept=".txt,.csv" multiple onchange="importFiles(this)">
+<div class="modal-overlay" id="aboutOverlay" onclick="if(event.target===this)hideAbout()">
+  <div class="modal"><button class="modal-close" onclick="hideAbout()">✕</button><h3>关于</h3>
+<pre>船讯定位 · ShipXY Locator Pro
+全球船舶实时定位与地址归属分析平台
+══════════════════════════════
+版　本　│　v1.0.0
+作　者　│　蔡中婷
+开发时间│　2026年7月6日
+开发地点│　中国 · 武汉
+══════════════════════════════
+◆ 核心能力
+   · 全球船舶实时定位——毫秒级解析 AIS 动态，精准还原经纬度（WGS-84）
+   · 智能鉴权穿透——自动完成签名校验与行为风控，稳定直取权威数据源
+   · 多级地址归属——国家 / 省 / 市 / 县区 / 镇 逐级下钻，境内境外一体覆盖
+   · 高并发批量核查——一次录入、批量处理，结果实时流式呈现
+   · 专业数据沉淀——一键导出美观 Excel 报表，交付即用
+══════════════════════════════
+◆ 适用场景
+   航运物流调度 · 港航贸易风控 · 船舶资产追踪 · 供应链可视化
+══════════════════════════════
+© 2026 蔡中婷 · 保留一切权利</pre></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+// ── 配置 ──
+var API_BASE = 'http://localhost:8000';  // 后端地址，可根据实际情况修改
+var COLUMN_KEYS = ["idx","query","name","cnname","mmsi","lat","lon","pos_dms","sog_knots","cog_deg","navistatus","country","province","city","district","town","address","dest","path","last_report","query_time","error"];
+var TEST_SHIPS = "渝东809\n镔港817\n镔港809\n乾坤99\n皖宇航6898\n镔港817\n镔港809\n淮海远哲\n万邦海运02\n万邦海运02\n新海集之星\n汉升方舟\n汉海5号\n万邦海运01\n长荣顺达\nJOSCO ALMA\nCSCL ASIA\nEVER FAVOR\nFAN YA NING DE";
+
+// ── 状态 ──
+var currentTaskId=null, eventSource=null, allResults=[];
+function $(s){return document.querySelector(s)}
+var shipInput=$('#shipInput'),chkHeadless=$('#chkHeadless'),amapKey=$('#amapKey'),btnStart=$('#btnStart'),btnExport=$('#btnExport'),progressFill=$('#progressFill'),statusText=$('#statusText'),tableOuter=$('#tableOuter'),resultTable=$('#resultTable'),tableBody=$('#tableBody'),emptyState=$('#emptyState'),countText=$('#countText'),toast=$('#toast');
+
+// ── Toast ──
+var toastTimer;
+function showToast(m,e){toast.textContent=m;toast.className='toast '+(e?'error ':'')+'show';clearTimeout(toastTimer);toastTimer=setTimeout(function(){toast.classList.remove('show')},2800)}
+
+// ── Modal ──
+function showAbout(){$('#aboutOverlay').classList.add('active')}
+function hideAbout(){$('#aboutOverlay').classList.remove('active')}
+
+// ── Import Files ──
+async function importFiles(input){
+  var files=input.files;
+  if(!files.length)return;
+  var chunks=[];
+  for(var i=0;i<files.length;i++){
+    try{chunks.push(await files[i].text())}
+    catch(e){showToast('读取失败：'+files[i].name,true)}
+  }
+  if(!chunks.length)return;
+  var existing=shipInput.value.trim();
+  shipInput.value=(existing?existing+'\n':'')+chunks.join('\n');
+  input.value='';
+  var names=parseQueries(shipInput.value);
+  showToast('已导入 '+files.length+' 个文件，共识别 '+names.length+' 个船名/MMSI');
+}
+
+// ── Parse ──
+function parseQueries(text){
+  if(!text)return[];
+  var parts=text.split(/[\n,，、;；\t]+/),seen={},out=[];
+  for(var i=0;i<parts.length;i++){
+    var s=parts[i].trim();
+    if(s&&!seen[s]){seen[s]=true;out.push(s)}
+  }
+  return out;
+}
+
+// ── Fill Test ──
+function fillTest(){
+  shipInput.value=TEST_SHIPS;
+  var names=parseQueries(shipInput.value);
+  statusText.textContent='已填充测试数据，共 '+names.length+' 个船名（去重后）';
+}
+
+// ── Clear ──
+function clearAll(){
+  if(eventSource){eventSource.close();eventSource=null}
+  if(currentTaskId){
+    fetch(API_BASE+'/api/task/'+currentTaskId,{method:'DELETE'}).catch(function(){});
+    currentTaskId=null;
+  }
+  allResults=[];tableBody.innerHTML='';resultTable.style.display='none';
+  emptyState.style.display='flex';
+  emptyState.textContent='输入船名/MMSI 后点击"开始查询"，结果将实时显示在这里';
+  progressFill.style.width='0%';countText.textContent='共 0 条';
+  statusText.textContent='已清空';btnExport.disabled=true;btnStart.disabled=false;
+}
+
+// ── Start Query ──
+async function startQuery(){
+  var queries=parseQueries(shipInput.value);
+  if(!queries.length){showToast('请先输入至少一个船名或 MMSI',true);return}
+
+  if(eventSource){eventSource.close();eventSource=null}
+  if(currentTaskId){
+    fetch(API_BASE+'/api/task/'+currentTaskId,{method:'DELETE'}).catch(function(){});
+    currentTaskId=null;
+  }
+
+  allResults=[];tableBody.innerHTML='';resultTable.style.display='';
+  emptyState.style.display='none';progressFill.style.width='0%';
+  countText.textContent='共 0 条';btnExport.disabled=true;btnStart.disabled=true;
+  statusText.textContent='正在启动浏览器并通过反爬验证，请稍候…';
+
+  try{
+    var resp=await fetch(API_BASE+'/api/query',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({queries:queries,headless:chkHeadless.checked,amap_key:amapKey.value.trim()||null})
+    });
+    if(!resp.ok){var err=await resp.json();throw new Error(err.detail||'请求失败')}
+    var data=await resp.json();
+    currentTaskId=data.task_id;
+
+    eventSource=new EventSource(API_BASE+'/api/stream/'+currentTaskId);
+
+    eventSource.onmessage=function(e){
+      try{
+        var row=JSON.parse(e.data);
+        allResults.push(row);
+        appendRow(row);
+        countText.textContent='共 '+allResults.length+' 条';
+      }catch(err){console.error(err)}
+    };
+
+    eventSource.addEventListener('progress',function(e){
+      try{
+        var p=JSON.parse(e.data);
+        var pct=p.total>0?Math.round(p.done/p.total*100):0;
+        progressFill.style.width=pct+'%';
+        statusText.textContent='正在查询… ('+p.done+'/'+p.total+')';
+      }catch(err){}
+    });
+
+    eventSource.addEventListener('done',function(e){
+      eventSource.close();eventSource=null;
+      btnStart.disabled=false;btnExport.disabled=allResults.length===0;
+      progressFill.style.width='100%';
+      statusText.textContent='查询完成，共 '+allResults.length+' 条。';
+      if(allResults.length===0){
+        emptyState.style.display='flex';
+        emptyState.textContent='查询完成，但无结果';
+        resultTable.style.display='none';
+      }
+    });
+
+    eventSource.addEventListener('error',function(e){
+      eventSource.close();eventSource=null;
+      btnStart.disabled=false;btnExport.disabled=allResults.length===0;
+      try{
+        var d=JSON.parse(e.data);
+        statusText.textContent='出错：'+d.error;
+        showToast('查询失败：'+d.error,true);
+      }catch(err){
+        statusText.textContent='连接中断或查询出错';
+        showToast('连接中断——请确认后端 python web_app.py 正在运行',true);
+      }
+    });
+
+    eventSource.onerror=function(e){
+      if(eventSource&&eventSource.readyState===EventSource.CLOSED){
+        btnStart.disabled=false;btnExport.disabled=allResults.length===0;
+        if(!allResults.length&&statusText.textContent.indexOf('出错')<0){
+          statusText.textContent='连接中断——请确认后端 python web_app.py 正在运行';
+        }
+      }
+    };
+  }catch(err){
+    btnStart.disabled=false;
+    statusText.textContent='出错：'+err.message;
+    showToast('请求失败——请确认后端 python web_app.py 正在运行',true);
+  }
+}
+
+// ── Append Row ──
+function appendRow(row){
+  var tr=document.createElement('tr');
+  for(var i=0;i<COLUMN_KEYS.length;i++){
+    var td=document.createElement('td');
+    var key=COLUMN_KEYS[i],val=row[key];
+    if(val===null||val===undefined)val='';
+    td.textContent=String(val);
+    if(i===0)td.style.textAlign='center';
+    if((key==='lat'||key==='lon')&&val!==''){td.classList.add('coord-col');td.title='双击复制坐标'}
+    if(key==='error'&&val!=='')td.classList.add('error-col');
+    tr.appendChild(td);
+  }
+  tr.addEventListener('dblclick',function(){
+    if(row.lat!==''&&row.lat!==undefined&&row.lon!==''&&row.lon!==undefined){
+      var coord=row.lat+','+row.lon;
+      navigator.clipboard.writeText(coord).then(function(){
+        showToast('已复制坐标：'+coord);
+      }).catch(function(){
+        var ta=document.createElement('textarea');ta.value=coord;
+        document.body.appendChild(ta);ta.select();
+        document.execCommand('copy');document.body.removeChild(ta);
+        showToast('已复制坐标：'+coord);
+      });
+    }
+  });
+  tableBody.appendChild(tr);
+  tableOuter.scrollTop=tableOuter.scrollHeight;
+}
+
+// ── Export ──
+function exportExcel(){
+  if(!currentTaskId||!allResults.length)return;
+  var a=document.createElement('a');
+  a.href=API_BASE+'/api/download/'+currentTaskId;
+  a.download='';document.body.appendChild(a);a.click();document.body.removeChild(a);
+  showToast('Excel 下载已开始');
+}
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown',function(e){
+  if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();startQuery()}
+});
+
+shipInput.focus();
+</script>
+</body>
+</html>
